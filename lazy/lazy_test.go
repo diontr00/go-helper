@@ -7,17 +7,27 @@ import (
 	"github.com/diontr00/go-helper/lazy"
 )
 
-func loadConfig(ch chan bool) func() {
-	return func() {
-		ch <- true
+type testTask struct {
+	ch chan struct{}
+}
+
+func (t *testTask) Load() {
+	t.ch <- struct{}{}
+}
+
+func newTask(ch chan struct{}) *testTask {
+	return &testTask{
+		ch: ch,
 	}
 }
 
 func TestLazy(t *testing.T) {
 	n := 5
-	ch := make(chan bool)
-	loadfn := loadConfig(ch)
-	load := lazy.New(loadfn)
+	ch := make(chan struct{})
+
+	task := newTask(ch)
+
+	load := lazy.New(task)
 	var wg sync.WaitGroup
 
 	count := 0
@@ -36,7 +46,11 @@ func TestLazy(t *testing.T) {
 		}()
 	}
 
-	for <-ch {
+	for {
+		_, ok := <-ch
+		if !ok {
+			break
+		}
 		count++
 	}
 
